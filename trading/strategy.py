@@ -25,28 +25,78 @@ class GridStrategy:
         self.position_size = config['trading']['position_size']
         self.max_positions = config['trading']['max_positions']
         
+        # Wolfpack parameters
+        self.sampling_period = 27  # Sampling period from PineScript
+        self.range_multiplier = 1.0  # Range multiplier from PineScript
+        
         # Risk parameters
         self.stop_loss = config['risk']['stop_loss']
         self.take_profit = config['risk']['take_profit']
         
-        # Indicator parameters
-        self.rsi_period = config['indicators']['rsi_period']
-        self.rsi_oversold = config['indicators']['rsi_oversold']
-        self.rsi_overbought = config['indicators']['rsi_overbought']
-        
+        # State variables
         self.grid_levels: List[GridLevel] = []
         self.current_price = None
         self.last_trade_time = None
         self.total_positions = 0
-        self.last_trend = 0
+        self.filtered_price = None
+        self.upward_count = 0
+        self.downward_count = 0
         
-        print(f"Strategy initialized: grid_size={self.grid_size}, spacing={self.grid_spacing*100}%")
+        print(f"Strategy initialized with Wolfpack settings: period={self.sampling_period}, mult={self.range_multiplier}")
+        
+    def calculate_smooth_range(self, prices: np.array) -> float:
+        """Calculate smooth range using Wolfpack method"""
+        # Calculate absolute price changes
+        price_changes = np.abs(np.diff(prices))
+        if len(price_changes) < self.sampling_period:
+            return 0.0
+            
+        # EMA of price changes
+        alpha = 2.0 / (self.sampling_period + 1)
+        avg_range = 0.0
+        for change in price_changes[-self.sampling_period:]:
+            avg_range = (alpha * change) + ((1 - alpha) * avg_range)
+            
+        # Double smoothing
+        wper = self.sampling_period * 2 - 1
+        alpha2 = 2.0 / (wper + 1)
+        smooth_range = avg_range
+        for _ in range(wper):
+            smooth_range = (alpha2 * avg_range) + ((1 - alpha2) * smooth_range)
+            
+        return smooth_range * self.range_multiplier
+        
+    def calculate_range_filter(self, price: float, smooth_range: float) -> float:
+        """Calculate range filtered price"""
+        if self.filtered_price is None:
+            self.filtered_price = price
+            return price
+            
+        if price > self.filtered_price:
+            new_filter = max(self.filtered_price, price - smooth_range)
+        else:
+            new_filter = min(self.filtered_price, price + smooth_range)
+            
+        self.filtered_price = new_filter
+        return new_filter
+        
+    def update_trend_counts(self, current_filter: float):
+        """Update upward/downward trend counts"""
+        if self.filtered_price is None:
+            return
+            
+        if current_filter > self.filtered_price:
+            self.upward_count += 1
+            self.downward_count = 0
+        elif current_filter < self.filtered_price:
+            self.upward_count = 0
+            self.downward_count += 1
         
     def initialize_grid(self, current_price: float) -> None:
         """Initialize grid levels around the current price"""
         self.current_price = current_price
         
-        # Calculate total range
+        # Calculate range based on volatility
         total_range = self.grid_spacing * self.grid_size
         min_price = current_price * (1 - total_range/2)
         
@@ -59,93 +109,78 @@ class GridStrategy:
         print(f"Grid initialized with {len(self.grid_levels)} levels from {self.grid_levels[0].price:.4f} to {self.grid_levels[-1].price:.4f}")
         
     def calculate_indicators(self, historical_data: pd.DataFrame) -> Dict:
-        """Calculate technical indicators"""
+        """Calculate technical indicators including Wolfpack filter"""
         close_prices = historical_data['close'].values
         
-        # RSI
-        rsi = RSIIndicator(close=historical_data['close'], window=self.rsi_period)
+        # RSI for confirmation
+        rsi = RSIIndicator(close=historical_data['close'], window=14)
         current_rsi = rsi.rsi().iloc[-1]
         
-        # Bollinger Bands
+        # Wolfpack calculations
+        smooth_range = self.calculate_smooth_range(close_prices)
+        filtered_price = self.calculate_range_filter(close_prices[-1], smooth_range)
+        self.update_trend_counts(filtered_price)
+        
+        # Bollinger Bands for volatility
         bb = BollingerBands(close=historical_data['close'])
-        bb_upper = bb.bollinger_hband().iloc[-1]
-        bb_lower = bb.bollinger_lband().iloc[-1]
-        bb_width = (bb_upper - bb_lower) / close_prices[-1]
+        bb_width = (bb.bollinger_hband() - bb.bollinger_lband()) / historical_data['close']
+        bb_width = bb_width.iloc[-1]
         
-        # Trends at different timeframes
-        short_trend = (close_prices[-1] / close_prices[-3] - 1) * 100  # 3-period trend
-        medium_trend = (close_prices[-1] / close_prices[-6] - 1) * 100  # 6-period trend
-        
-        # Momentum and volatility
-        momentum = close_prices[-1] / close_prices[-2] - 1
-        volatility = np.std(np.diff(close_prices[-10:])) / close_prices[-1]
+        # Calculate trends at different timeframes
+        short_trend = (close_prices[-1] / close_prices[-3] - 1) * 100  # 3-period
+        medium_trend = (close_prices[-1] / close_prices[-6] - 1) * 100  # 6-period
         
         indicators = {
             'rsi': current_rsi,
+            'filtered_price': filtered_price,
+            'smooth_range': smooth_range,
             'bb_width': bb_width,
-            'bb_upper': bb_upper,
-            'bb_lower': bb_lower,
             'short_trend': short_trend,
             'medium_trend': medium_trend,
-            'momentum': momentum,
-            'volatility': volatility
+            'upward_count': self.upward_count,
+            'downward_count': self.downward_count
         }
         
         print(f"Indicators - RSI: {current_rsi:.1f}, Trends: {short_trend:.1f}%/{medium_trend:.1f}%, BB Width: {bb_width*100:.1f}%")
         return indicators
     
     def should_buy(self, level: GridLevel, indicators: Dict) -> bool:
-        """Determine if we should buy at this grid level"""
+        """Determine if we should buy at this grid level using Wolfpack logic"""
         if level.position_size > 0 or self.total_positions >= self.max_positions:
             return False
             
-        # Only take trades with good history
-        if level.trades_taken > 0:
-            success_rate = level.successful_trades / level.trades_taken
-            if success_rate < 0.3:  # Avoid levels with poor performance
-                return False
+        # Check level history
+        if level.trades_taken > 2 and level.successful_trades / level.trades_taken < 0.4:
+            return False
             
-        # Wait for cooldown after losses
-        if self.last_trade_time:
-            cooldown = datetime.now() - self.last_trade_time
-            if cooldown.total_seconds() < 3600:  # 1 hour cooldown
-                return False
-                
-        # Price is near grid level
-        price_diff = (self.current_price - level.price) / level.price
-        price_condition = -self.grid_spacing/2 <= price_diff <= self.grid_spacing/4
+        # Price conditions
+        price_above_filter = self.current_price > indicators['filtered_price']
+        price_near_level = abs(self.current_price - level.price) / level.price < self.grid_spacing/2
+        
+        # Trend conditions
+        upward_trend = indicators['upward_count'] > 0
+        trend_strength = indicators['short_trend'] > -0.5 and indicators['medium_trend'] < -1.0
         
         # Technical conditions
-        rsi_condition = indicators['rsi'] <= self.rsi_oversold
-        bb_condition = self.current_price <= indicators['bb_lower'] * 1.01
+        rsi_oversold = indicators['rsi'] < 40
+        volatility_ok = 0.005 <= indicators['bb_width'] <= 0.03
         
-        # Trend analysis
-        trend_reversal = (
-            indicators['short_trend'] > -0.5 and  # Downtrend slowing
-            indicators['medium_trend'] < -1.0 and  # Overall downtrend
-            indicators['momentum'] > -0.001  # Price stabilizing
-        )
-        
-        # Volatility check
-        volatility_condition = (
-            0.001 <= indicators['volatility'] <= 0.01 and  # Not too volatile
-            indicators['bb_width'] >= 0.02  # Enough room to profit
-        )
-        
+        # Combined signal
         signal = (
-            price_condition and
-            volatility_condition and
-            (rsi_condition or bb_condition) and
-            trend_reversal
+            price_above_filter and 
+            price_near_level and 
+            upward_trend and
+            trend_strength and
+            (rsi_oversold or volatility_ok)
         )
         
         if signal:
-            print(f"Buy signal at {level.price:.4f} - RSI: {indicators['rsi']:.1f}, Trend: {indicators['short_trend']:.1f}%")
+            print(f"Buy signal at {level.price:.4f} - RSI: {indicators['rsi']:.1f}, Up Count: {indicators['upward_count']}")
             
         return signal
     
     def should_sell(self, level: GridLevel, indicators: Dict) -> bool:
-        """Determine if we should sell at this grid level"""
+        """Determine if we should sell using Wolfpack logic"""
         if level.position_size <= 0 or not level.entry_price:
             return False
             
@@ -156,17 +191,13 @@ class GridStrategy:
         take_profit = profit_pct >= self.take_profit
         stop_loss = profit_pct <= -self.stop_loss
         
-        # Technical exit conditions
-        technical_exit = (
-            indicators['rsi'] >= self.rsi_overbought or
-            self.current_price >= indicators['bb_upper'] * 0.99
-        )
+        # Wolfpack conditions
+        price_below_filter = self.current_price < indicators['filtered_price']
+        downward_trend = indicators['downward_count'] > 0
         
-        # Trend-based exit
-        trend_exit = (
-            indicators['short_trend'] < -1.0 and
-            indicators['medium_trend'] < 0
-        )
+        # RSI and trend conditions
+        rsi_overbought = indicators['rsi'] > 60
+        trend_reversal = indicators['short_trend'] < 0 and indicators['medium_trend'] < 0
         
         # Time-based exit - minimum 30 minutes hold
         time_condition = True
@@ -177,28 +208,27 @@ class GridStrategy:
         signal = time_condition and (
             take_profit or
             stop_loss or
-            (technical_exit and trend_exit)
+            (price_below_filter and downward_trend and (rsi_overbought or trend_reversal))
         )
         
         if signal:
-            # Update level statistics
             level.trades_taken += 1
             if profit_pct > 0:
                 level.successful_trades += 1
-            print(f"Sell signal at {level.price:.4f} - Profit: {profit_pct*100:.1f}%, RSI: {indicators['rsi']:.1f}")
+            print(f"Sell signal at {level.price:.4f} - Profit: {profit_pct*100:.1f}%, Down Count: {indicators['downward_count']}")
             
         return signal
         
     def calculate_position_size(self, price: float, indicators: Dict) -> float:
-        """Calculate position size based on risk and volatility"""
+        """Calculate position size based on Wolfpack indicators"""
         base_size = self.position_size
         
         # Reduce size in high volatility
-        if indicators['volatility'] > 0.005:
+        if indicators['bb_width'] > 0.02:
             base_size *= 0.5
             
         # Increase size in strong setups
-        if indicators['rsi'] < 30 and indicators['short_trend'] > 0:
+        if indicators['upward_count'] > 2 and indicators['rsi'] < 30:
             base_size *= 1.5
             
         return base_size
@@ -221,7 +251,7 @@ class GridStrategy:
                     'indicators': indicators
                 })
                 
-        # Then check for buy signals if we have capacity
+        # Then look for buy signals
         if self.total_positions < self.max_positions:
             for level in self.grid_levels:
                 if self.should_buy(level, indicators):
