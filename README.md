@@ -1,45 +1,52 @@
 # Crypto Grid Trader
 
-Advanced cryptocurrency grid trading system with momentum indicators, backtesting, and web GUI.
+## Recent Updates
+- Refactored React components to modern functional component syntax
+- Improved error handling and state management
+- Enhanced type checking with PropTypes
+- Standardized import/export mechanisms
 
-## Features
+## Frontend Component Updates
+- Converted global `window`-based components to ES6 module exports
+- Implemented consistent error handling
+- Added prop type validation
+- Improved state management in components
 
-- Grid trading with momentum confirmation
-- RSI and MACD indicators
-- Backtesting engine
-- Web-based GUI
-- Risk management system
-- Binance integration
+## Prerequisites
+- Node.js 14+ 
+- React 17+
+- Python 3.8+
 
 ## Installation
 
+### Backend Setup
 ```bash
 pip install -r requirements.txt
 ```
 
-## Configuration
-
-Create a `config.yaml` file with your settings:
-
-```yaml
-api_key: 'your_binance_api_key'
-api_secret: 'your_binance_api_secret'
-use_bnb_fees: true
+### Frontend Setup
+```bash
+npm install
 ```
 
-## Running the System
+## Running the Application
 
-1. Start the web interface:
+1. Start the backend:
 ```bash
 python app.py
 ```
 
-2. Access the dashboard at `http://localhost:5000`
+2. Start the frontend (in another terminal):
+```bash
+npm run start
+```
 
-## Documentation
+3. Access the dashboard at `http://localhost:5000`
 
-See the `docs/` directory for detailed documentation on:
-- Strategy parameters
-- Backtesting
-- Risk management
-- API integration
+## Troubleshooting
+- Ensure all dependencies are installed
+- Check browser console for any import or rendering errors
+- Verify API endpoints are correctly configured
+
+## Contributing
+Please submit pull requests with detailed descriptions of changes.
