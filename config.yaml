@@ -1,50 +1,39 @@
 # Trading Parameters
 trading:
   symbol: ALGOUSDC
-  grid_size: 8  # Fewer, more focused levels
-  grid_spacing: 0.005  # 0.5% between levels
-  position_size: 0.05  # 5% of capital per grid
+  grid_size: 6  # Fewer levels for more focused trading
+  grid_spacing: 0.02  # 2% between levels for wider range
+  position_size: 0.2  # Larger positions for meaningful profits
   max_positions: 3
-  min_profit_usd: 0.5  # Minimum profit target in USD
-  max_slippage: 0.001  # Maximum allowed slippage (0.1%)
+  min_profit_usd: 0.5
 
 # Risk Management
 risk:
-  stop_loss: 0.01  # 1% stop loss
-  take_profit: 0.005  # 0.5% take profit
-  max_leverage: 1
-  max_drawdown: 0.02  # 2% maximum drawdown
-  position_timeout: 3600  # Close position if no movement for 1 hour
+  stop_loss: 0.02  # 2% stop loss
+  take_profit: 0.01  # 1% take profit
+  max_drawdown: 0.05  # 5% maximum drawdown
+  position_timeout: 3600  # 1 hour timeout
 
 # Technical Indicators
 indicators:
-  # RSI Settings
+  # RSI Settings - more lenient
   rsi_period: 14
-  rsi_oversold: 40  # More aggressive buy threshold
-  rsi_overbought: 60  # More aggressive sell threshold
-  
-  # MACD Settings
-  macd_fast: 12
-  macd_slow: 26
-  macd_signal: 9
+  rsi_oversold: 40  # More aggressive buy trigger
+  rsi_overbought: 60  # More aggressive sell trigger
   
   # Volume Profile
   volume_periods: 20
-  min_volume_threshold: 1000  # Minimum volume in USDC
-  
-  # Additional Filters
-  min_volatility: 0.002  # Minimum volatility required
-  max_volatility: 0.05  # Maximum volatility allowed
+  min_volume_threshold: 100  # Reduced for more trades
 
 # Binance Settings
 binance:
-  testnet: true  # Set to false for live trading
+  testnet: true
   use_bnb_fees: false
   
 # Backtesting Settings
 backtest:
-  initial_capital: 10000  # Starting capital in USDC
-  test_period_days: 30  # Default backtest period
+  initial_capital: 10000
+  test_period_days: 30
   include_weekends: true
-  fee_model: "binance"  # Use Binance's fee structure
-  slippage_model: "fixed"  # Fixed slippage model
+  fee_model: "binance"
+  slippage_model: "fixed"
