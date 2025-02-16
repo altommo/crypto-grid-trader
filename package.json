@@ -6,8 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build:react": "babel static/js/components --out-dir static/js/dist --source-maps",
-    "watch:react": "babel static/js/components --out-dir static/js/dist --source-maps --watch"
+    "start-backend": "python app.py"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.1",
