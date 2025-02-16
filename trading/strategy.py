@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from ta.momentum import RSIIndicator
-from ta.trend import MACD
 from ta.volatility import BollingerBands
 
 @dataclass
@@ -14,6 +13,8 @@ class GridLevel:
     entry_price: Optional[float] = None
     entry_time: Optional[datetime] = None
     last_update: Optional[datetime] = None
+    trades_taken: int = 0
+    successful_trades: int = 0
 
 class GridStrategy:
     def __init__(self, config: Dict):
@@ -37,6 +38,7 @@ class GridStrategy:
         self.current_price = None
         self.last_trade_time = None
         self.total_positions = 0
+        self.last_trend = 0
         
         print(f"Strategy initialized: grid_size={self.grid_size}, spacing={self.grid_spacing*100}%")
         
@@ -64,24 +66,32 @@ class GridStrategy:
         rsi = RSIIndicator(close=historical_data['close'], window=self.rsi_period)
         current_rsi = rsi.rsi().iloc[-1]
         
-        # MACD
-        macd = MACD(close=historical_data['close'])
-        macd_hist = macd.macd_diff().iloc[-1]
+        # Bollinger Bands
+        bb = BollingerBands(close=historical_data['close'])
+        bb_upper = bb.bollinger_hband().iloc[-1]
+        bb_lower = bb.bollinger_lband().iloc[-1]
+        bb_width = (bb_upper - bb_lower) / close_prices[-1]
         
-        # Simple trend
+        # Trends at different timeframes
         short_trend = (close_prices[-1] / close_prices[-3] - 1) * 100  # 3-period trend
+        medium_trend = (close_prices[-1] / close_prices[-6] - 1) * 100  # 6-period trend
         
-        # Price momentum
-        momentum = (close_prices[-1] / close_prices[-2] - 1) * 100
+        # Momentum and volatility
+        momentum = close_prices[-1] / close_prices[-2] - 1
+        volatility = np.std(np.diff(close_prices[-10:])) / close_prices[-1]
         
         indicators = {
             'rsi': current_rsi,
-            'macd_hist': macd_hist,
-            'trend': short_trend,
-            'momentum': momentum
+            'bb_width': bb_width,
+            'bb_upper': bb_upper,
+            'bb_lower': bb_lower,
+            'short_trend': short_trend,
+            'medium_trend': medium_trend,
+            'momentum': momentum,
+            'volatility': volatility
         }
         
-        print(f"Indicators - RSI: {current_rsi:.1f}, MACD: {macd_hist:.6f}, Trend: {short_trend:.1f}%")
+        print(f"Indicators - RSI: {current_rsi:.1f}, Trends: {short_trend:.1f}%/{medium_trend:.1f}%, BB Width: {bb_width*100:.1f}%")
         return indicators
     
     def should_buy(self, level: GridLevel, indicators: Dict) -> bool:
@@ -89,26 +99,48 @@ class GridStrategy:
         if level.position_size > 0 or self.total_positions >= self.max_positions:
             return False
             
-        # Basic price condition - price is near or below grid level
+        # Only take trades with good history
+        if level.trades_taken > 0:
+            success_rate = level.successful_trades / level.trades_taken
+            if success_rate < 0.3:  # Avoid levels with poor performance
+                return False
+            
+        # Wait for cooldown after losses
+        if self.last_trade_time:
+            cooldown = datetime.now() - self.last_trade_time
+            if cooldown.total_seconds() < 3600:  # 1 hour cooldown
+                return False
+                
+        # Price is near grid level
         price_diff = (self.current_price - level.price) / level.price
-        price_condition = -self.grid_spacing <= price_diff <= self.grid_spacing/2
+        price_condition = -self.grid_spacing/2 <= price_diff <= self.grid_spacing/4
         
-        # RSI oversold condition
+        # Technical conditions
         rsi_condition = indicators['rsi'] <= self.rsi_oversold
+        bb_condition = self.current_price <= indicators['bb_lower'] * 1.01
         
-        # Trend conditions
-        trend_condition = indicators['trend'] >= -1.0  # Not strongly downward
-        momentum_condition = indicators['momentum'] > -0.5  # Price not falling fast
+        # Trend analysis
+        trend_reversal = (
+            indicators['short_trend'] > -0.5 and  # Downtrend slowing
+            indicators['medium_trend'] < -1.0 and  # Overall downtrend
+            indicators['momentum'] > -0.001  # Price stabilizing
+        )
         
-        # Combined signal
+        # Volatility check
+        volatility_condition = (
+            0.001 <= indicators['volatility'] <= 0.01 and  # Not too volatile
+            indicators['bb_width'] >= 0.02  # Enough room to profit
+        )
+        
         signal = (
             price_condition and
-            (rsi_condition or indicators['macd_hist'] > 0) and
-            (trend_condition and momentum_condition)
+            volatility_condition and
+            (rsi_condition or bb_condition) and
+            trend_reversal
         )
         
         if signal:
-            print(f"Buy signal at {level.price:.4f} - Price diff: {price_diff*100:.1f}%, RSI: {indicators['rsi']:.1f}")
+            print(f"Buy signal at {level.price:.4f} - RSI: {indicators['rsi']:.1f}, Trend: {indicators['short_trend']:.1f}%")
             
         return signal
     
@@ -120,53 +152,67 @@ class GridStrategy:
         # Calculate profit
         profit_pct = (self.current_price - level.entry_price) / level.entry_price
         
-        # Price conditions
-        price_diff = (self.current_price - level.price) / level.price
-        price_condition = abs(price_diff) <= self.grid_spacing
-        
         # Take profit or stop loss
         take_profit = profit_pct >= self.take_profit
         stop_loss = profit_pct <= -self.stop_loss
         
-        # Technical conditions
-        rsi_condition = indicators['rsi'] >= self.rsi_overbought
-        trend_condition = indicators['trend'] <= 1.0  # Not strongly upward
+        # Technical exit conditions
+        technical_exit = (
+            indicators['rsi'] >= self.rsi_overbought or
+            self.current_price >= indicators['bb_upper'] * 0.99
+        )
         
-        # Time-based exit - minimum 15 minutes hold time
+        # Trend-based exit
+        trend_exit = (
+            indicators['short_trend'] < -1.0 and
+            indicators['medium_trend'] < 0
+        )
+        
+        # Time-based exit - minimum 30 minutes hold
         time_condition = True
         if level.entry_time:
             hold_time = datetime.now() - level.entry_time
-            time_condition = hold_time.total_seconds() > 900
+            time_condition = hold_time.total_seconds() > 1800
             
-        # Exit signal
         signal = time_condition and (
             take_profit or
             stop_loss or
-            (price_condition and rsi_condition and trend_condition)
+            (technical_exit and trend_exit)
         )
         
         if signal:
-            reason = "Take profit" if take_profit else "Stop loss" if stop_loss else "Technical"
-            print(f"Sell signal at {level.price:.4f} - {reason}, Profit: {profit_pct*100:.1f}%")
+            # Update level statistics
+            level.trades_taken += 1
+            if profit_pct > 0:
+                level.successful_trades += 1
+            print(f"Sell signal at {level.price:.4f} - Profit: {profit_pct*100:.1f}%, RSI: {indicators['rsi']:.1f}")
             
         return signal
-    
-    def calculate_position_size(self, price: float) -> float:
-        """Calculate position size based on risk"""
-        return self.position_size
+        
+    def calculate_position_size(self, price: float, indicators: Dict) -> float:
+        """Calculate position size based on risk and volatility"""
+        base_size = self.position_size
+        
+        # Reduce size in high volatility
+        if indicators['volatility'] > 0.005:
+            base_size *= 0.5
+            
+        # Increase size in strong setups
+        if indicators['rsi'] < 30 and indicators['short_trend'] > 0:
+            base_size *= 1.5
+            
+        return base_size
         
     def update(self, current_price: float, historical_data: pd.DataFrame) -> List[Dict]:
         """Update strategy state and generate trading signals"""
         self.current_price = current_price
-        print(f"\nUpdating strategy at price {current_price:.4f}")
         
         # Calculate indicators
         indicators = self.calculate_indicators(historical_data)
         signals = []
         
-        # Check each grid level for trading opportunities
+        # Check for sell signals first
         for level in self.grid_levels:
-            # Check for sell signals first
             if level.position_size > 0 and self.should_sell(level, indicators):
                 signals.append({
                     'action': 'SELL',
@@ -174,18 +220,20 @@ class GridStrategy:
                     'size': level.position_size,
                     'indicators': indicators
                 })
-                continue
                 
-            # Then check for buy signals
-            if self.total_positions < self.max_positions and self.should_buy(level, indicators):
-                size = self.calculate_position_size(level.price)
-                signals.append({
-                    'action': 'BUY',
-                    'price': level.price,
-                    'size': size,
-                    'indicators': indicators
-                })
-                
+        # Then check for buy signals if we have capacity
+        if self.total_positions < self.max_positions:
+            for level in self.grid_levels:
+                if self.should_buy(level, indicators):
+                    size = self.calculate_position_size(level.price, indicators)
+                    signals.append({
+                        'action': 'BUY',
+                        'price': level.price,
+                        'size': size,
+                        'indicators': indicators
+                    })
+                    break  # Only one buy signal at a time
+                    
         return signals
         
     def update_position(self, level: GridLevel, size: float, price: float) -> None:
@@ -202,3 +250,4 @@ class GridStrategy:
             level.entry_time = None
             
         level.last_update = datetime.now()
+        self.last_trade_time = datetime.now()
