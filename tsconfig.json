@@ -15,5 +15,5 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "static/js/components"]
+  "include": ["static/js/components", "src"]
 }
