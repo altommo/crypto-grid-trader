@@ -1,27 +1,27 @@
 # Trading Parameters
 trading:
   symbol: ALGOUSDC
-  grid_size: 12  # Number of grid levels
-  grid_spacing: 0.01  # 1% between levels
-  position_size: 0.1  # 10% of capital per grid
-  max_positions: 5
+  grid_size: 8  # Fewer, more focused levels
+  grid_spacing: 0.005  # 0.5% between levels
+  position_size: 0.05  # 5% of capital per grid
+  max_positions: 3
   min_profit_usd: 0.5  # Minimum profit target in USD
   max_slippage: 0.001  # Maximum allowed slippage (0.1%)
 
 # Risk Management
 risk:
-  stop_loss: 0.02  # 2% stop loss
+  stop_loss: 0.01  # 1% stop loss
   take_profit: 0.005  # 0.5% take profit
-  max_leverage: 3
-  max_drawdown: 0.05  # 5% maximum drawdown
+  max_leverage: 1
+  max_drawdown: 0.02  # 2% maximum drawdown
   position_timeout: 3600  # Close position if no movement for 1 hour
 
 # Technical Indicators
 indicators:
   # RSI Settings
   rsi_period: 14
-  rsi_oversold: 45  # More aggressive buy threshold
-  rsi_overbought: 55  # More aggressive sell threshold
+  rsi_oversold: 40  # More aggressive buy threshold
+  rsi_overbought: 60  # More aggressive sell threshold
   
   # MACD Settings
   macd_fast: 12
