@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Grid Trader</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Crypto Grid Trader</h1>
+        </header>
+
+        <!-- Trading Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- Strategy Settings -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Strategy Settings</h2>
+                <form id="strategyForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Symbol</label>
+                        <input type="text" id="symbol" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="ALGOUSDC">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Grid Size</label>
+                        <input type="number" id="gridSize" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="10">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Grid Spacing (%)</label>
+                        <input type="number" id="gridSpacing" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="0.5" step="0.1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Use BNB for Fees</label>
+                        <input type="checkbox" id="useBnbFees" class="mt-1 rounded">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700">
+                        Apply Settings
+                    </button>
+                </form>
+            </div>
+
+            <!-- Current Status -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Current Status</h2>
+                <div class="space-y-4">
+                    <div>
+                        <span class="text-sm text-gray-500">Current Price:</span>
+                        <span id="currentPrice" class="text-lg font-medium"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Active Positions:</span>
+                        <span id="activePositions" class="text-lg font-medium"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Total Profit/Loss:</span>
+                        <span id="totalPnl" class="text-lg font-medium"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Visualization -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Grid Levels</h2>
+            <canvas id="gridChart" class="w-full" height="200"></canvas>
+        </div>
+
+        <!-- Backtesting Results -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Backtesting</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <form id="backtestForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Test Period (days)</label>
+                            <input type="number" id="backtestDays" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="30">
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white rounded-md py-2 hover:bg-green-700">
+                            Run Backtest
+                        </button>
+                    </form>
+                </div>
+                <div id="backtestResults" class="space-y-2">
+                    <div>
+                        <span class="text-sm text-gray-500">Total Return:</span>
+                        <span id="totalReturn" class="text-lg font-medium"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Win Rate:</span>
+                        <span id="winRate" class="text-lg font-medium"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Total Trades:</span>
+                        <span id="totalTrades" class="text-lg font-medium"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize charts and handle form submissions
+        let gridChart = null;
+
+        // Initialize grid chart
+        function initGridChart() {
+            const ctx = document.getElementById('gridChart').getContext('2d');
+            gridChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Grid Levels',
+                        data: [],
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update grid status
+        async function updateGridStatus() {
+            const response = await fetch('/api/grid/status');
+            const data = await response.json();
+            
+            document.getElementById('currentPrice').textContent = `$${data.current_price.toFixed(4)}`;
+            
+            // Update chart
+            gridChart.data.labels = data.grid_levels.map(level => `$${level.price.toFixed(4)}`);
+            gridChart.data.datasets[0].data = data.grid_levels.map(level => level.position_size);
+            gridChart.update();
+        }
+
+        // Run backtest
+        async function runBacktest(days) {
+            const response = await fetch('/api/backtest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    days: days
+                })
+            });
+            
+            const results = await response.json();
+            
+            document.getElementById('totalReturn').textContent = `${(results.total_return * 100).toFixed(2)}%`;
+            document.getElementById('winRate').textContent = `${(results.win_rate * 100).toFixed(2)}%`;
+            document.getElementById('totalTrades').textContent = results.total_trades;
+        }
+
+        // Event listeners
+        document.getElementById('strategyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // Update strategy settings
+            await updateGridStatus();
+        });
+
+        document.getElementById('backtestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const days = parseInt(document.getElementById('backtestDays').value);
+            await runBacktest(days);
+        });
+
+        // Initialize
+        initGridChart();
+        updateGridStatus();
+    </script>
+</body>
+</html>
