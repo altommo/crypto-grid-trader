@@ -149,9 +149,10 @@ class GridStrategy:
         
     def calculate_position_size(self, price: float) -> float:
         """Calculate position size based on current price and configuration"""
-        base_size = self.position_size * self.initial_balance / price
+        # Base position size from config
+        base_size = self.position_size
         
-        # Reduce position size when price is far from grid level
+        # Scale by current price
         price_factor = 1.0
         if self.current_price:
             price_diff = abs(price - self.current_price) / price
