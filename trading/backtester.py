@@ -32,26 +32,16 @@ class Backtester:
         # Fee configuration
         self.maker_fee = 0.001  # 0.1%
         self.taker_fee = 0.001
-        self.use_bnb_fees = config['binance']['use_bnb_fees']
-        if self.use_bnb_fees:
+        if config['binance']['use_bnb_fees']:
             self.maker_fee *= 0.75  # 25% discount
             self.taker_fee *= 0.75
             
+        print(f"Initialized backtester with balance: {self.initial_balance}")
+
     def calculate_fees(self, price: float, size: float, is_maker: bool = True) -> float:
         """Calculate trading fees based on configuration"""
         fee_rate = self.maker_fee if is_maker else self.taker_fee
         return price * size * fee_rate
-        
-    def apply_slippage(self, price: float, size: float, is_buy: bool) -> float:
-        """Apply slippage model to price"""
-        slippage = self.config['trading']['max_slippage']
-        if self.config['backtest']['slippage_model'] == 'fixed':
-            adjustment = 1 + (slippage if is_buy else -slippage)
-        else:
-            # Proportional to size
-            impact = min(size / 1000, 0.01)  # Cap at 1%
-            adjustment = 1 + (impact if is_buy else -impact)
-        return price * adjustment
 
     def execute_trade(self, signal: Dict, timestamp: datetime) -> Optional[Trade]:
         """Execute a trade signal in the backtesting environment"""
@@ -59,31 +49,33 @@ class Backtester:
         size = signal['size']
         action = signal['action']
         indicators = signal.get('indicators', {})
-        
-        # Apply slippage
-        executed_price = self.apply_slippage(price, size, action == 'BUY')
+
+        print(f"Executing trade: {action} {size} @ {price}")
         
         if action == 'BUY':
-            cost = executed_price * size
-            fees = self.calculate_fees(executed_price, size)
+            cost = price * size
+            fees = self.calculate_fees(price, size)
             total_cost = cost + fees
             
             if total_cost <= self.current_balance:
                 self.current_balance -= total_cost
                 self.positions[price] = size
                 
-                trade = Trade(timestamp, action, executed_price, size, fees, indicators)
+                trade = Trade(timestamp, action, price, size, fees, indicators)
                 trade.pnl = -fees
                 trade.cumulative_pnl = self.calculate_cumulative_pnl()
                 
                 self.trades.append(trade)
+                print(f"Buy executed: Balance={self.current_balance}")
                 return trade
+            else:
+                print(f"Insufficient balance for buy: {total_cost} > {self.current_balance}")
                 
         elif action == 'SELL':
             if price in self.positions:
                 size = min(size, self.positions[price])
-                revenue = executed_price * size
-                fees = self.calculate_fees(executed_price, size)
+                revenue = price * size
+                fees = self.calculate_fees(price, size)
                 total_revenue = revenue - fees
                 
                 self.current_balance += total_revenue
@@ -91,7 +83,7 @@ class Backtester:
                 if self.positions[price] <= 0:
                     del self.positions[price]
                 
-                trade = Trade(timestamp, action, executed_price, size, fees, indicators)
+                trade = Trade(timestamp, action, price, size, fees, indicators)
                 trade.pnl = total_revenue - (price * size)
                 trade.cumulative_pnl = self.calculate_cumulative_pnl()
                 
@@ -99,7 +91,10 @@ class Backtester:
                 
                 # Update peak balance and drawdown
                 self.peak_balance = max(self.peak_balance, self.current_balance)
+                print(f"Sell executed: Balance={self.current_balance}, PnL={trade.pnl}")
                 return trade
+            else:
+                print(f"No position to sell at price {price}")
                 
         return None
 
@@ -119,7 +114,9 @@ class Backtester:
     def run(self) -> Dict:
         """Run backtest on historical data"""
         # Initialize grid with first price
-        self.strategy.initialize_grid(self.data['close'].iloc[0])
+        first_price = self.data['close'].iloc[0]
+        print(f"Initializing grid at price {first_price}")
+        self.strategy.initialize_grid(first_price)
         
         # Create trading window for indicators
         window_size = max(
@@ -131,17 +128,20 @@ class Backtester:
         for i in range(window_size, len(self.data)):
             window = self.data.iloc[i-window_size:i+1]
             current_price = window['close'].iloc[-1]
-            timestamp = pd.to_datetime(window.index[-1])
+            timestamp = window.index[-1]
             
             # Generate trading signals
             signals = self.strategy.update(current_price, window)
+            print(f"Generated {len(signals)} signals at {timestamp}")
             
             # Execute signals
             for signal in signals:
                 self.execute_trade(signal, timestamp)
                 
-        # Calculate final performance metrics
-        return self.calculate_performance()
+        # Calculate performance metrics
+        results = self.calculate_performance()
+        print(f"Backtest completed: {len(self.trades)} trades executed")
+        return results
         
     def calculate_performance(self) -> Dict:
         """Calculate comprehensive backtest performance metrics"""
@@ -180,7 +180,7 @@ class Backtester:
         else:
             sharpe_ratio = 0
             
-        return {
+        metrics = {
             'total_return': total_return,
             'total_trades': total_trades,
             'win_rate': win_rate,
@@ -195,6 +195,9 @@ class Backtester:
                                trades_df[trades_df['pnl'] < 0]['pnl'].sum()) 
                                if len(trades_df[trades_df['pnl'] < 0]) > 0 else float('inf')
         }
+        
+        print(f"Performance metrics: {metrics}")
+        return metrics
         
     def empty_performance_metrics(self) -> Dict:
         """Return empty performance metrics when no trades are made"""
