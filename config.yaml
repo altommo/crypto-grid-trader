@@ -1,0 +1,52 @@
+# Trading Parameters
+trading:
+  symbol: ALGOUSDC
+  grid_size: 12  # Number of grid levels
+  grid_spacing: 0.005  # 0.5% between levels
+  position_size: 0.02  # 2% of capital per grid
+  max_positions: 3
+  min_profit_usd: 1.0  # Minimum profit target in USD
+  max_slippage: 0.001  # Maximum allowed slippage (0.1%)
+
+# Risk Management
+risk:
+  stop_loss: 0.02  # 2% stop loss
+  take_profit: 0.01  # 1% take profit
+  max_leverage: 3
+  max_drawdown: 0.05  # 5% maximum drawdown
+  position_timeout: 3600  # Close position if no movement for 1 hour
+
+# Technical Indicators
+indicators:
+  # RSI Settings
+  rsi_period: 14
+  rsi_oversold: 30
+  rsi_overbought: 70
+  
+  # MACD Settings
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  
+  # Volume Profile
+  volume_periods: 20
+  min_volume_threshold: 1000  # Minimum volume in USDC
+  
+  # Additional Filters
+  min_volatility: 0.002  # Minimum volatility required
+  max_volatility: 0.05  # Maximum volatility allowed
+
+# Binance Settings
+binance:
+  api_key: "your_api_key_here"
+  api_secret: "your_api_secret_here"
+  testnet: true  # Set to false for live trading
+  use_bnb_fees: false
+  
+# Backtesting Settings
+backtest:
+  initial_capital: 10000  # Starting capital in USDC
+  test_period_days: 30  # Default backtest period
+  include_weekends: true
+  fee_model: "binance"  # Use Binance's fee structure
+  slippage_model: "fixed"  # Fixed slippage model
