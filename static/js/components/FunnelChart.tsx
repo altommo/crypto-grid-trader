@@ -1,58 +1,53 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { 
-  Funnel, 
-  FunnelChart as RechartsFunnelChart, 
-  ResponsiveContainer, 
-  Tooltip, 
-  LabelList,
-  Cell
-} from 'recharts';
 
-interface FunnelChartProps {
-  data: Array<{
-    name: string;
-    value: number;
-    fill?: string;
-  }>;
-  width?: number | string;
-  height?: number | string;
-}
-
-const FunnelChart: React.FC<FunnelChartProps> = ({ 
-  data, 
-  width = '100%', 
-  height = 400 
-}) => {
-  // Ensure data exists and is not empty
+// Simplified custom Funnel Chart without Recharts animation
+const FunnelChart = ({ data }) => {
+  // Validate and prepare data
   if (!data || data.length === 0) {
     return <div>No data available</div>;
   }
 
+  // Calculate maximum value for scaling
+  const maxValue = Math.max(...data.map(item => item.value));
+
+  // Color palette
+  const colors = [
+    '#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#e6f2ff'
+  ];
+
   return (
-    <ResponsiveContainer width={width} height={height}>
-      <RechartsFunnelChart>
-        <Funnel
-          data={data}
-          dataKey="value"
-          labelKey="name"
-          fill="#8884d8"
-        >
-          <LabelList 
-            position="right" 
-            fill="#000" 
-            stroke="none" 
-          />
-          {data.map((entry, index) => (
-            <Cell 
-              key={`cell-${index}`} 
-              fill={entry.fill || `#${Math.floor(Math.random()*16777215).toString(16)}`} 
-            />
-          ))}
-        </Funnel>
-        <Tooltip />
-      </RechartsFunnelChart>
-    </ResponsiveContainer>
+    <div className="funnel-chart" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      width: '100%', 
+      padding: '20px' 
+    }}>
+      <h3>Funnel Visualization</h3>
+      {data.map((item, index) => {
+        // Calculate width based on value
+        const widthPercentage = (item.value / maxValue) * 100;
+        
+        return (
+          <div 
+            key={item.name} 
+            style={{
+              width: `${widthPercentage}%`,
+              backgroundColor: colors[index % colors.length],
+              color: 'white',
+              padding: '10px',
+              margin: '5px 0',
+              textAlign: 'center',
+              transition: 'width 0.3s ease',
+              borderRadius: '5px'
+            }}
+          >
+            {item.name}: {item.value}
+          </div>
+        );
+      })}
+    </div>
   );
 };
 
@@ -60,18 +55,14 @@ FunnelChart.propTypes = {
   data: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string.isRequired,
-      value: PropTypes.number.isRequired,
-      fill: PropTypes.string
+      value: PropTypes.number.isRequired
     })
-  ).isRequired,
-  width: PropTypes.oneOfType([
-    PropTypes.number,
-    PropTypes.string
-  ]),
-  height: PropTypes.oneOfType([
-    PropTypes.number,
-    PropTypes.string
-  ])
+  ).isRequired
 };
+
+// Add global window export for legacy support
+if (typeof window !== 'undefined') {
+  window.FunnelChart = FunnelChart;
+}
 
 export default FunnelChart;
