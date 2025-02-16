@@ -1,0 +1,220 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Grid Trader</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/react@17.0.2/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17.0.2/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <script src="{{ url_for('static', filename='js/StrategySettings.js') }}" type="text/babel"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Crypto Grid Trader</h1>
+        </header>
+
+        <!-- Strategy Settings -->
+        <div id="strategy-settings" class="bg-white rounded-lg shadow p-6"></div>
+
+        <!-- Current Status -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Current Status</h2>
+            <div class="space-y-4">
+                <div>
+                    <span class="text-sm text-gray-500">Current Price:</span>
+                    <span id="currentPrice" class="text-lg font-medium"></span>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">Active Positions:</span>
+                    <span id="activePositions" class="text-lg font-medium">0</span>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">Total Profit/Loss:</span>
+                    <span id="totalPnl" class="text-lg font-medium">$0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Visualization -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Grid Levels</h2>
+            <div id="gridChart" class="w-full" style="height: 400px;"></div>
+        </div>
+
+        <!-- Backtesting Results -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Backtesting</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <form id="backtestForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Test Period (days)</label>
+                            <input type="number" id="backtestDays" name="days" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="30">
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white rounded-md py-2 hover:bg-green-700">
+                            Run Backtest
+                        </button>
+                    </form>
+                </div>
+                <div id="backtestResults" class="space-y-2">
+                    <div>
+                        <span class="text-sm text-gray-500">Total Return:</span>
+                        <span id="totalReturn" class="text-lg font-medium">0.00%</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Win Rate:</span>
+                        <span id="winRate" class="text-lg font-medium">0.00%</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-500">Total Trades:</span>
+                        <span id="totalTrades" class="text-lg font-medium">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        let candleSeries;
+        let chartInitialized = false;
+
+        function initChart() {
+            if (chartInitialized) return;
+            chartInitialized = true;
+            const chartContainer = document.getElementById('gridChart');
+            chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.offsetWidth,
+                height: 400,
+                layout: {
+                    backgroundColor: '#ffffff',
+                    textColor: 'rgba(33, 56, 77, 1)',
+                },
+                grid: {
+                    vertLines: {
+                        color: 'rgba(197, 203, 206, 0.5)',
+                    },
+                    horzLines: {
+                        color: 'rgba(197, 203, 206, 0.5)',
+                    },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: 'rgba(197, 203, 206, 1)',
+                },
+                timeScale: {
+                    borderColor: 'rgba(197, 203, 206, 1)',
+                },
+            });
+
+            candleSeries = chart.addCandlestickSeries({
+                upColor: 'rgb(38,166,154)',
+                downColor: 'rgb(239,83,80)',
+                borderDownColor: 'rgb(239,83,80)',
+                borderUpColor: 'rgb(38,166,154)',
+                wickDownColor: 'rgb(239,83,80)',
+                wickUpColor: 'rgb(38,166,154)',
+            });
+        }
+
+        function updateChart(data) {
+            if (candleSeries) {
+                candleSeries.setData(data);
+            }
+        }
+
+        function addGridLines(levels) {
+            levels.forEach((level, index) => {
+                chart.addLineSeries({
+                    color: `rgba(76, 175, 80, ${1 - index * 0.1})`,
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                }).setData([
+                    { time: chart.timeScale().getVisibleRange().from, value: level.price },
+                    { time: chart.timeScale().getVisibleRange().to, value: level.price },
+                ]);
+            });
+        }
+
+        async function updateGridStatus() {
+            if (!chartInitialized) {
+                initChart();
+            }
+            try {
+                console.log('Fetching grid status...');
+                const response = await fetch('/api/grid/status');
+                const data = await response.json();
+                console.log('Grid status data:', data);
+                if (data.error) {
+                    console.error('Error getting grid status:', data.error);
+                    return;
+                }
+                document.getElementById('currentPrice').textContent = `$${data.current_price.toFixed(4)}`;
+                
+                // Update chart
+                if (data.grid_levels && data.grid_levels.length > 0) {
+                    console.log('Updating chart with grid levels:', data.grid_levels);
+                    if (chart && chart.series) {
+                        chart.series().forEach(series => chart.removeSeries(series));
+                    }
+                    addGridLines(data.grid_levels);
+                    
+                    // Fetch historical data for the candlestick chart
+                    const historicalData = await fetchHistoricalData();
+                    updateChart(historicalData);
+                    
+                    console.log('Chart updated');
+                } else {
+                    console.log('No grid levels data available');
+                }
+            } catch (error) {
+                console.error('Error updating grid status:', error);
+            }
+        }
+
+        async function fetchHistoricalData() {
+            const response = await fetch('/api/historical_data');
+            return await response.json();
+        }
+
+        async function runBacktest(event) {
+            event.preventDefault();
+            try {
+                const days = document.getElementById('backtestDays').value;
+                const response = await fetch('/api/backtest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ days: parseInt(days) })
+                });
+                const results = await response.json();
+                if (results.error) {
+                    console.error('Backtest error:', results.error);
+                    return;
+                }
+                document.getElementById('totalReturn').textContent = `${(results.total_return * 100).toFixed(2)}%`;
+                document.getElementById('winRate').textContent = `${(results.win_rate * 100).toFixed(2)}%`;
+                document.getElementById('totalTrades').textContent = results.total_trades;
+            } catch (error) {
+                console.error('Error running backtest:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM fully loaded');
+            initChart();
+            updateGridStatus();
+            setInterval(updateGridStatus, 30000);
+            document.getElementById('backtestForm').addEventListener('submit', runBacktest);
+        });
+    </script>
+</body>
+</html>
