@@ -66,10 +66,10 @@ class Backtester:
                 trade.cumulative_pnl = self.calculate_cumulative_pnl()
                 
                 self.trades.append(trade)
-                print(f"Buy executed: Balance={self.current_balance}")
+                print(f"Buy executed: Balance={self.current_balance:.2f}")
                 return trade
             else:
-                print(f"Insufficient balance for buy: {total_cost} > {self.current_balance}")
+                print(f"Insufficient balance for buy: {total_cost:.2f} > {self.current_balance:.2f}")
                 
         elif action == 'SELL':
             if price in self.positions:
@@ -91,7 +91,7 @@ class Backtester:
                 
                 # Update peak balance and drawdown
                 self.peak_balance = max(self.peak_balance, self.current_balance)
-                print(f"Sell executed: Balance={self.current_balance}, PnL={trade.pnl}")
+                print(f"Sell executed: Balance={self.current_balance:.2f}, PnL={trade.pnl:.2f}")
                 return trade
             else:
                 print(f"No position to sell at price {price}")
@@ -119,10 +119,8 @@ class Backtester:
         self.strategy.initialize_grid(first_price)
         
         # Create trading window for indicators
-        window_size = max(
-            self.config['indicators']['rsi_period'],
-            self.config['indicators']['macd_slow'] + self.config['indicators']['macd_signal']
-        )
+        window_size = max(self.config['indicators']['rsi_period'],
+                         self.config['indicators']['ma_slow'])
         
         # Run simulation
         for i in range(window_size, len(self.data)):
@@ -132,16 +130,15 @@ class Backtester:
             
             # Generate trading signals
             signals = self.strategy.update(current_price, window)
-            print(f"Generated {len(signals)} signals at {timestamp}")
             
             # Execute signals
             for signal in signals:
                 self.execute_trade(signal, timestamp)
                 
-        # Calculate performance metrics
-        results = self.calculate_performance()
+        # Calculate final performance metrics
+        metrics = self.calculate_performance()
         print(f"Backtest completed: {len(self.trades)} trades executed")
-        return results
+        return metrics
         
     def calculate_performance(self) -> Dict:
         """Calculate comprehensive backtest performance metrics"""
@@ -163,6 +160,14 @@ class Backtester:
         profitable_trades = len(trades_df[trades_df['pnl'] > 0])
         win_rate = profitable_trades / total_trades if total_trades > 0 else 0
         
+        # Calculate average holding period
+        if len(trades_df) >= 2:
+            trades_df['next_timestamp'] = trades_df['timestamp'].shift(-1)
+            holding_periods = (trades_df['next_timestamp'] - trades_df['timestamp']).dropna()
+            avg_holding_period = holding_periods.mean().total_seconds() / 3600  # in hours
+        else:
+            avg_holding_period = 0
+            
         # PnL metrics
         total_pnl = self.calculate_cumulative_pnl()
         total_return = total_pnl / self.initial_balance
@@ -191,6 +196,7 @@ class Backtester:
             'final_balance': self.current_balance,
             'total_fees': trades_df['fees'].sum(),
             'trades_per_day': total_trades / len(self.data.index.unique()),
+            'avg_holding_period': avg_holding_period,
             'profit_factor': abs(trades_df[trades_df['pnl'] > 0]['pnl'].sum() / 
                                trades_df[trades_df['pnl'] < 0]['pnl'].sum()) 
                                if len(trades_df[trades_df['pnl'] < 0]) > 0 else float('inf')
@@ -212,5 +218,6 @@ class Backtester:
             'final_balance': self.initial_balance,
             'total_fees': 0.0,
             'trades_per_day': 0.0,
+            'avg_holding_period': 0.0,
             'profit_factor': 0.0
         }
