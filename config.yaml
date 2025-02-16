@@ -21,19 +21,22 @@ indicators:
   rsi_oversold: 40  # More aggressive buy trigger
   rsi_overbought: 60  # More aggressive sell trigger
   
-  # Volume Profile
+  # Moving Average Settings
+  ma_fast: 5  # 5-period moving average
+  ma_slow: 10  # 10-period moving average
+
+  # Volume Settings
   volume_periods: 20
   min_volume_threshold: 100  # Reduced for more trades
 
-# Binance Settings
+# Exchange Settings
 binance:
   testnet: true
   use_bnb_fees: false
   
 # Backtesting Settings
 backtest:
-  initial_capital: 10000
+  initial_capital: 10000  # Starting capital in USDC
   test_period_days: 30
-  include_weekends: true
-  fee_model: "binance"
-  slippage_model: "fixed"
+  fee_model: "binance"  # Use Binance's fee structure
+  slippage_model: "fixed"  # Fixed slippage
