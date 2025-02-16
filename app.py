@@ -5,12 +5,25 @@ from trading.strategy import GridStrategy
 from trading.backtester import Backtester
 from binance.client import Client
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 
 # Load configuration
 with open('config.yaml') as f:
     config = yaml.safe_load(f)
+
+# Add API credentials from environment variables
+config['binance']['api_key'] = os.getenv('BINANCE_API_KEY')
+config['binance']['api_secret'] = os.getenv('BINANCE_API_SECRET')
+
+# Validate API credentials
+if not config['binance']['api_key'] or not config['binance']['api_secret']:
+    raise ValueError("Binance API credentials not found in environment variables")
 
 # Initialize Binance client
 client = Client(
