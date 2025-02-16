@@ -22,10 +22,6 @@ with open('config.yaml') as f:
 config['binance']['api_key'] = os.getenv('BINANCE_API_KEY')
 config['binance']['api_secret'] = os.getenv('BINANCE_API_SECRET')
 
-# Validate API credentials
-if not config['binance']['api_key'] or not config['binance']['api_secret']:
-    raise ValueError("Binance API credentials not found in environment variables")
-
 # Initialize Binance client
 client = Client(
     config['binance']['api_key'],
@@ -45,7 +41,7 @@ def run_backtest():
         print(f"Received parameters: {params}")  # Debug log
         
         symbol = params.get('symbol', config['trading']['symbol'])
-        days = params.get('days', 30)
+        days = int(params.get('days', 30))  # Convert to integer
         
         # Update config with form parameters if provided
         if 'gridSize' in params:
@@ -66,8 +62,8 @@ def run_backtest():
         klines = client.get_historical_klines(
             symbol,
             Client.KLINE_INTERVAL_1HOUR,
-            str(start_time),
-            str(end_time)
+            str(int(start_time.timestamp() * 1000)),  # Convert to milliseconds
+            str(int(end_time.timestamp() * 1000))
         )
         
         if not klines:
@@ -92,6 +88,8 @@ def run_backtest():
         
         for col in ['open', 'high', 'low', 'close', 'volume']:
             df[col] = df[col].astype(float)
+        
+        print(f"Data range: {df.index.min()} to {df.index.max()}")  # Debug log
         
         # Run backtest
         backtester = Backtester(config, df)
