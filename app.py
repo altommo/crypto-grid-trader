@@ -33,6 +33,90 @@ client = Client(
 def index():
     return render_template('index.html')
 
+@app.route('/api/strategy/parameters', methods=['GET'])
+def get_strategy_parameters():
+    """Get all strategy parameters"""
+    try:
+        return jsonify({
+            'basic': {
+                'symbol': config['trading']['symbol'],
+                'gridSize': config['trading']['grid_size'],
+                'gridSpacing': config['trading']['grid_spacing'] * 100,  # Convert to percentage
+                'positionSize': config['trading']['position_size'],
+                'maxPositions': config['trading']['max_positions'],
+                'useBnbFees': config['binance']['use_bnb_fees']
+            },
+            'wolfpack': {
+                'samplingPeriod': config['trading'].get('sampling_period', 27),
+                'rangeMultiplier': config['trading'].get('range_multiplier', 1.0)
+            },
+            'risk': {
+                'stopLoss': config['risk']['stop_loss'] * 100,  # Convert to percentage
+                'takeProfit': config['risk']['take_profit'] * 100,  # Convert to percentage
+                'minSuccessRate': config['risk'].get('min_success_rate', 0.4) * 100,  # Convert to percentage
+                'minHoldTime': config['risk'].get('min_hold_time', 30)
+            },
+            'technical': {
+                'rsiPeriod': config['technical'].get('rsi_period', 14),
+                'shortTrendPeriod': config['technical'].get('short_trend_period', 3),
+                'mediumTrendPeriod': config['technical'].get('medium_trend_period', 6),
+                'minVolatility': config['technical'].get('min_volatility', 0.005) * 100,  # Convert to percentage
+                'maxVolatility': config['technical'].get('max_volatility', 0.03) * 100  # Convert to percentage
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/strategy/parameters', methods=['POST'])
+def update_strategy_parameters():
+    """Update strategy parameters"""
+    try:
+        params = request.json
+        
+        # Update basic parameters
+        if 'basic' in params:
+            basic = params['basic']
+            config['trading']['symbol'] = basic.get('symbol', config['trading']['symbol'])
+            config['trading']['grid_size'] = int(basic.get('gridSize', config['trading']['grid_size']))
+            config['trading']['grid_spacing'] = float(basic.get('gridSpacing', config['trading']['grid_spacing'])) / 100
+            config['trading']['position_size'] = float(basic.get('positionSize', config['trading']['position_size']))
+            config['trading']['max_positions'] = int(basic.get('maxPositions', config['trading']['max_positions']))
+            config['binance']['use_bnb_fees'] = bool(basic.get('useBnbFees', config['binance']['use_bnb_fees']))
+        
+        # Update Wolfpack parameters
+        if 'wolfpack' in params:
+            wolfpack = params['wolfpack']
+            config['trading']['sampling_period'] = int(wolfpack.get('samplingPeriod', 27))
+            config['trading']['range_multiplier'] = float(wolfpack.get('rangeMultiplier', 1.0))
+        
+        # Update risk parameters
+        if 'risk' in params:
+            risk = params['risk']
+            config['risk']['stop_loss'] = float(risk.get('stopLoss', config['risk']['stop_loss'])) / 100
+            config['risk']['take_profit'] = float(risk.get('takeProfit', config['risk']['take_profit'])) / 100
+            config['risk']['min_success_rate'] = float(risk.get('minSuccessRate', 40)) / 100
+            config['risk']['min_hold_time'] = int(risk.get('minHoldTime', 30))
+        
+        # Update technical parameters
+        if 'technical' in params:
+            tech = params['technical']
+            config['technical'] = {
+                'rsi_period': int(tech.get('rsiPeriod', 14)),
+                'short_trend_period': int(tech.get('shortTrendPeriod', 3)),
+                'medium_trend_period': int(tech.get('mediumTrendPeriod', 6)),
+                'min_volatility': float(tech.get('minVolatility', 0.5)) / 100,
+                'max_volatility': float(tech.get('maxVolatility', 3.0)) / 100
+            }
+        
+        # Save updated config
+        with open('config.yaml', 'w') as f:
+            yaml.dump(config, f)
+        
+        return jsonify({'status': 'success', 'message': 'Parameters updated successfully'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/backtest', methods=['POST'])
 def run_backtest():
     try:
