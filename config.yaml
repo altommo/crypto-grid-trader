@@ -1,9 +1,9 @@
 # Trading Parameters
 trading:
   symbol: ALGOUSDC
-  grid_size: 6  # Fewer levels for more focused trading
-  grid_spacing: 0.02  # 2% between levels for wider range
-  position_size: 0.2  # Larger positions for meaningful profits
+  grid_size: 6  # Number of grid levels
+  grid_spacing: 0.02  # 2% between levels
+  position_size: 0.2  # Position size as fraction of capital
   max_positions: 3
   min_profit_usd: 0.5
 
@@ -14,29 +14,35 @@ risk:
   max_drawdown: 0.05  # 5% maximum drawdown
   position_timeout: 3600  # 1 hour timeout
 
-# Technical Indicators
-indicators:
-  # RSI Settings - more lenient
-  rsi_period: 14
-  rsi_oversold: 40  # More aggressive buy trigger
-  rsi_overbought: 60  # More aggressive sell trigger
-  
-  # Moving Average Settings
-  ma_fast: 5  # 5-period moving average
-  ma_slow: 10  # 10-period moving average
+# Wolfpack Parameters
+wolfpack:
+  sampling_period: 27  # Period for range calculation
+  range_multiplier: 1.0  # Multiplier for range
+  use_heikin_ashi: false  # Use HA candles
+  rsi_oversold: 40  # RSI oversold level
+  rsi_overbought: 60  # RSI overbought level
+  trend_strength: 2  # Required trend count
 
-  # Volume Settings
-  volume_periods: 20
-  min_volume_threshold: 100  # Reduced for more trades
+# EMAs
+ema:
+  use_emas: false  # Enable EMAs
+  ema1_period: 21  # Fast EMA
+  ema2_period: 50  # Medium EMA
+  ema3_period: 200  # Slow EMA
+
+# Bollinger Bands
+bollinger:
+  use_bb: false  # Enable Bollinger Bands
+  bb_period: 20  # BB period
+  bb_std: 2.0  # Standard deviation multiplier
 
 # Exchange Settings
 binance:
-  testnet: true
-  use_bnb_fees: false
+  testnet: true  # Use testnet
+  use_bnb_fees: false  # Use BNB for fees
   
 # Backtesting Settings
 backtest:
   initial_capital: 10000  # Starting capital in USDC
-  test_period_days: 30
-  fee_model: "binance"  # Use Binance's fee structure
-  slippage_model: "fixed"  # Fixed slippage
+  test_period_days: 30  # Backtest duration
+  timeframe: "1h"  # Trading timeframe
