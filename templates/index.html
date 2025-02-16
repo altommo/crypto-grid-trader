@@ -8,7 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/react@17.0.2/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@17.0.2/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- TradingView Widget BEGIN -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <!-- TradingView Widget END -->
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
     <script src="{{ url_for('static', filename='js/StrategySettings.js') }}" type="text/babel"></script>
 </head>
@@ -40,10 +42,10 @@
             </div>
         </div>
 
-        <!-- Grid Visualization -->
+        <!-- TradingView Chart -->
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold mb-4">Grid Levels</h2>
-            <div id="gridChart" class="w-full" style="height: 400px;"></div>
+            <h2 class="text-xl font-semibold mb-4">Chart</h2>
+            <div id="tradingview_widget" class="w-full" style="height: 400px;"></div>
         </div>
 
         <!-- Backtesting Results -->
@@ -80,63 +82,22 @@
     </div>
 
     <script>
-        let chart;
-        let candleSeries;
+        let widget;
 
-        function initChart() {
-            const chartContainer = document.getElementById('gridChart');
-            chart = LightweightCharts.createChart(chartContainer, {
-                width: chartContainer.offsetWidth,
-                height: 400,
-                layout: {
-                    backgroundColor: '#ffffff',
-                    textColor: 'rgba(33, 56, 77, 1)',
-                },
-                grid: {
-                    vertLines: {
-                        color: 'rgba(197, 203, 206, 0.5)',
-                    },
-                    horzLines: {
-                        color: 'rgba(197, 203, 206, 0.5)',
-                    },
-                },
-                crosshair: {
-                    mode: LightweightCharts.CrosshairMode.Normal,
-                },
-                rightPriceScale: {
-                    borderColor: 'rgba(197, 203, 206, 1)',
-                },
-                timeScale: {
-                    borderColor: 'rgba(197, 203, 206, 1)',
-                },
-            });
-
-            candleSeries = chart.addCandlestickSeries({
-                upColor: 'rgb(38,166,154)',
-                downColor: 'rgb(239,83,80)',
-                borderDownColor: 'rgb(239,83,80)',
-                borderUpColor: 'rgb(38,166,154)',
-                wickDownColor: 'rgb(239,83,80)',
-                wickUpColor: 'rgb(38,166,154)',
-            });
-        }
-
-        function updateChart(data) {
-            if (candleSeries) {
-                candleSeries.setData(data);
-            }
-        }
-
-        function addGridLines(levels) {
-            levels.forEach((level, index) => {
-                chart.addLineSeries({
-                    color: `rgba(76, 175, 80, ${1 - index * 0.1})`,
-                    lineWidth: 1,
-                    lineStyle: LightweightCharts.LineStyle.Dashed,
-                }).setData([
-                    { time: chart.timeScale().getVisibleRange().from, value: level.price },
-                    { time: chart.timeScale().getVisibleRange().to, value: level.price },
-                ]);
+        function initTradingViewWidget() {
+            widget = new TradingView.widget({
+                "width": "100%",
+                "height": 400,
+                "symbol": "BINANCE:BTCUSDT",
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "light",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#f1f3f6",
+                "enable_publishing": false,
+                "allow_symbol_change": true,
+                "container_id": "tradingview_widget"
             });
         }
 
@@ -152,28 +113,16 @@
                 }
                 document.getElementById('currentPrice').textContent = `$${data.current_price.toFixed(4)}`;
                 
-                // Update chart
+                // Update grid levels (this will be implemented later)
                 if (data.grid_levels && data.grid_levels.length > 0) {
-                    console.log('Updating chart with grid levels:', data.grid_levels);
-                    chart.removeSeries(chart.series());
-                    addGridLines(data.grid_levels);
-                    
-                    // Fetch historical data for the candlestick chart
-                    const historicalData = await fetchHistoricalData();
-                    updateChart(historicalData);
-                    
-                    console.log('Chart updated');
+                    console.log('Grid levels:', data.grid_levels);
+                    // TODO: Implement grid level visualization
                 } else {
                     console.log('No grid levels data available');
                 }
             } catch (error) {
                 console.error('Error updating grid status:', error);
             }
-        }
-
-        async function fetchHistoricalData() {
-            const response = await fetch('/api/historical_data');
-            return await response.json();
         }
 
         async function runBacktest(event) {
@@ -202,7 +151,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM fully loaded');
-            initChart();
+            initTradingViewWidget();
             updateGridStatus();
             setInterval(updateGridStatus, 30000);
             document.getElementById('backtestForm').addEventListener('submit', runBacktest);
