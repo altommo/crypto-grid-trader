@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Cryptocurrency Grid Trading Application",
   "scripts": {
+    "start-backend": "python app.py",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "start-backend": "python app.py"
+    "preview": "vite preview"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.1",
