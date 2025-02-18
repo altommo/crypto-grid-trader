@@ -6,16 +6,12 @@ from app.config.settings import load_config
 def create_app():
     print("Creating Flask application...")
     
-    # Determine frontend path
-    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    project_root = os.path.dirname(backend_dir)
-    frontend_dir = os.path.join(project_root, 'frontend')
+    # Explicit frontend path
+    frontend_dir = r'C:\Users\hp\Documents\crypto-grid-trader\crypto-grid-trader\frontend'
     template_dir = os.path.join(frontend_dir, 'templates')
     static_dir = os.path.join(frontend_dir, 'static')
     
     # Debug print full paths
-    print(f"Backend directory: {backend_dir}")
-    print(f"Project root: {project_root}")
     print(f"Frontend directory: {frontend_dir}")
     print(f"Template directory: {template_dir}")
     print(f"Static directory: {static_dir}")
