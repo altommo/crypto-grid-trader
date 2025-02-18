@@ -1,52 +1,93 @@
 # Crypto Grid Trader
 
+A cryptocurrency grid trading application with advanced charting, multiple strategies, and backtesting capabilities.
+
+## Current Features
+
+### Overview Page
+- Interactive price chart with multiple timeframes
+- Symbol pair selection (Base/Quote currency)
+- Grid trading parameter configuration
+- Real-time status monitoring
+
+### Chart Features
+- Multiple timeframe support (1m to 1M)
+- Loading overlay for data updates
+- Responsive design
+- Custom pair selection
+
 ## Recent Updates
-- Refactored React components to modern functional component syntax
-- Improved error handling and state management
-- Enhanced type checking with PropTypes
-- Standardized import/export mechanisms
+- Added loading overlay for chart updates
+- Implemented base/quote currency selection
+- Extended timeframe options
+- Modularized template structure
+- Added navigation menu
 
-## Frontend Component Updates
-- Converted global `window`-based components to ES6 module exports
-- Implemented consistent error handling
-- Added prop type validation
-- Improved state management in components
+## Next Steps
+1. Implement Strategy Development Page
+   - Custom indicator configuration
+   - Entry/exit rule creation
+   - Position sizing rules
 
-## Prerequisites
-- Node.js 14+ 
-- React 17+
-- Python 3.8+
+2. Add Backtesting Features
+   - Date range selection
+   - Parameter optimization
+   - Performance metrics
+
+3. Enhance Grid Trading
+   - Dynamic grid adjustment
+   - Risk management parameters
+   - Position tracking
 
 ## Installation
 
-### Backend Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/crypto-grid-trader.git
+```
+
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### Frontend Setup
+3. Set up environment variables:
 ```bash
-npm install
+cp .env.example .env
+# Edit .env with your API keys
 ```
 
-## Running the Application
-
-1. Start the backend:
+4. Run the application:
 ```bash
-python app.py
+python run.py
 ```
 
-2. Start the frontend (in another terminal):
-```bash
-npm run start
+## Project Structure
 ```
-
-3. Access the dashboard at `http://localhost:5000`
-
-## Troubleshooting
-- Ensure all dependencies are installed
-- Check browser console for any import or rendering errors
-- Verify API endpoints are correctly configured
+crypto-grid-trader/
+├── app/
+│   ├── __init__.py
+│   ├── routes/
+│   │   ├── main.py
+│   │   ├── chart.py
+│   │   └── strategy.py
+│   ├── static/
+│   │   ├── css/
+│   │   └── js/
+│   │       ├── chart.js
+│   │       └── overview.js
+│   └── templates/
+│       ├── base.html
+│       └── index.html
+├── requirements.txt
+└── run.py
+```
 
 ## Contributing
-Please submit pull requests with detailed descriptions of changes.
+1. Create a feature branch
+2. Make your changes
+3. Update documentation
+4. Submit a pull request
+
+## License
+MIT License - see LICENSE file for details
