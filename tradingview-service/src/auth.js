@@ -95,8 +95,10 @@ async function handleCaptchaLogin(username, password) {
             const currentUrl = await driver.getCurrentUrl();
             console.log('Current URL:', currentUrl);
 
-            // Only proceed if we've left the signin page
-            if (currentUrl === 'https://www.tradingview.com/') {
+            // Explicitly check if we've left the signin page
+            if (!currentUrl.includes('/accounts/signin/')) {
+                console.log('Left signin page, attempting to get cookies...');
+
                 // Try to get cookies
                 const cookies = await driver.manage().getCookies();
                 console.log('Found cookies:', cookies.length);
@@ -106,14 +108,15 @@ async function handleCaptchaLogin(username, password) {
 
                 // Detailed logging of login state
                 console.log('Login State Check:', {
+                    currentUrl,
                     hasSessionidCookie: !!sessionidCookie,
                     hasSessionidSignCookie: !!sessionidSignCookie
                 });
 
-                // Only consider login successful when on https://www.tradingview.com with required cookies
+                // Only consider login successful if we've left signin page and have both cookies
                 if (sessionidCookie && sessionidSignCookie) {
                     loginSuccessful = true;
-                    console.log('Found required cookies on main page!');
+                    console.log('Found required cookies outside signin page!');
                     return {
                         session: sessionidCookie.value,
                         signature: sessionidSignCookie.value
