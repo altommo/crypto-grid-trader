@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Crypto Grid Trader{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <!-- Load TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div id="tradingChart" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, initializing chart...');
+            
+            try {
+                const container = document.getElementById('tradingChart');
+                console.log('Container:', container);
+
+                const chart = LightweightCharts.createChart(container, {
+                    width: container.clientWidth,
+                    height: container.clientHeight,
+                    layout: {
+                        background: { color: '#ffffff' },
+                        textColor: '#333333',
+                    },
+                    grid: {
+                        vertLines: { color: '#f0f0f0' },
+                        horzLines: { color: '#f0f0f0' },
+                    },
+                    timeScale: {
+                        timeVisible: true,
+                        secondsVisible: false,
+                    }
+                });
+                
+                const candleSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                    wickUpColor: '#26a69a',
+                    wickDownColor: '#ef5350'
+                });
+                
+                // Add sample data
+                const data = [
+                    { time: '2024-02-01', open: 100, high: 105, low: 96, close: 102 },
+                    { time: '2024-02-02', open: 102, high: 108, low: 100, close: 105 },
+                    { time: '2024-02-03', open: 105, high: 106, low: 98, close: 100 }
+                ];
+                
+                candleSeries.setData(data);
+                console.log('Data set successfully');
+
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    chart.applyOptions({
+                        width: container.clientWidth,
+                        height: container.clientHeight
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Error initializing chart:', error);
+                console.error('Error stack:', error.stack);
+            }
+        });
+    </script>
+</body>
+</html>
