@@ -31,6 +31,16 @@ async function handleCaptchaLogin(username, password) {
         // Wait for page load
         await driver.sleep(3000);
 
+        // Handle cookie preferences (if cookie consent dialog appears)
+        try {
+            const cookieAcceptButton = await driver.findElement(By.css('button[aria-label="Accept necessary cookies only"]'));
+            await cookieAcceptButton.click();
+            console.log('Accepted only necessary cookies');
+            await driver.sleep(1000);
+        } catch {
+            console.log('No cookie consent dialog found or unable to click');
+        }
+
         console.log('Looking for Email button...');
         const emailButton = await driver.wait(
             until.elementLocated(By.css('.emailButton-nKAw8Hvt')),
@@ -79,11 +89,15 @@ async function handleCaptchaLogin(username, password) {
         // Wait for successful login
         let loginSuccessful = false;
         const startTime = Date.now();
-        const maxWaitTime = 120000; // 2 minutes
+        const maxWaitTime = 300000; // 5 minutes
 
         while (!loginSuccessful && (Date.now() - startTime) < maxWaitTime) {
             const currentUrl = await driver.getCurrentUrl();
             console.log('Current URL:', currentUrl);
+
+            // Explicit checks for successful login
+            const isMainPage = currentUrl.startsWith('https://www.tradingview.com/') && !currentUrl.includes('signin');
+            const isNotSignInPage = !currentUrl.includes('/accounts/signin/');
 
             // Try to get cookies
             const cookies = await driver.manage().getCookies();
@@ -92,36 +106,22 @@ async function handleCaptchaLogin(username, password) {
             const sessionidCookie = cookies.find(cookie => cookie.name === 'sessionid');
             const sessionidSignCookie = cookies.find(cookie => cookie.name === 'sessionid_sign');
 
-            if (sessionidCookie && sessionidSignCookie) {
+            // Detailed logging of login state
+            console.log('Login State Check:', {
+                isMainPage,
+                isNotSignInPage,
+                hasSessionidCookie: !!sessionidCookie,
+                hasSessionidSignCookie: !!sessionidSignCookie
+            });
+
+            // Only consider login successful if we're on the main page or not on sign-in page
+            if ((isMainPage || isNotSignInPage) && sessionidCookie && sessionidSignCookie) {
                 loginSuccessful = true;
-                console.log('Found required cookies!');
+                console.log('Found required cookies and reached correct page!');
                 return {
-                    sessionid: sessionidCookie.value,
-                    sessionid_sign: sessionidSignCookie.value
+                    session: sessionidCookie.value,
+                    signature: sessionidSignCookie.value
                 };
-            }
-
-            // Check if we're still on login page
-            try {
-                await driver.findElement(By.id('id_username'));
-                console.log('Still on login page, waiting...');
-            } catch {
-                // Not on login page anymore, check if we have cookies
-                console.log('No longer on login page, checking cookies...');
-                await driver.sleep(2000); // Wait for cookies to be set
-                
-                const updatedCookies = await driver.manage().getCookies();
-                const updatedSessionidCookie = updatedCookies.find(cookie => cookie.name === 'sessionid');
-                const updatedSessionidSignCookie = updatedCookies.find(cookie => cookie.name === 'sessionid_sign');
-
-                if (updatedSessionidCookie && updatedSessionidSignCookie) {
-                    loginSuccessful = true;
-                    console.log('Found required cookies after login!');
-                    return {
-                        sessionid: updatedSessionidCookie.value,
-                        sessionid_sign: updatedSessionidSignCookie.value
-                    };
-                }
             }
 
             await driver.sleep(2000); // Wait before next check
@@ -130,7 +130,7 @@ async function handleCaptchaLogin(username, password) {
         // If we're here, we timed out
         const finalCookies = await driver.manage().getCookies();
         const cookieNames = finalCookies.map(c => c.name).join(', ');
-        throw new Error(`Timed out waiting for cookies. Available cookies: ${cookieNames}`);
+        throw new Error(`Timed out waiting for successful login. Available cookies: ${cookieNames}`);
 
     } catch (error) {
         console.error('CAPTCHA login error:', error);
