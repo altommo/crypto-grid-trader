@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - Crypto Grid Trader{% endblock %}
+
+{% block content %}
+<!-- Chart Section -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold">Trading Chart</h2>
+        <div class="flex space-x-4">
+            <!-- Base Currency -->
+            <div>
+                <label for="base-selector" class="block text-sm font-medium text-gray-700">Crypto</label>
+                <select id="base-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <!-- Quote Currency -->
+            <div>
+                <label for="quote-selector" class="block text-sm font-medium text-gray-700">Pair</label>
+                <select id="quote-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="">Select crypto first</option>
+                </select>
+            </div>
+            <!-- Timeframe -->
+            <div>
+                <label for="timeframe-selector" class="block text-sm font-medium text-gray-700">Timeframe</label>
+                <select id="timeframe-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="1m">1m</option>
+                    <option value="3m">3m</option>
+                    <option value="5m">5m</option>
+                    <option value="15m">15m</option>
+                    <option value="30m">30m</option>
+                    <option value="1h">1h</option>
+                    <option value="2h">2h</option>
+                    <option value="4h">4h</option>
+                    <option value="6h">6h</option>
+                    <option value="8h">8h</option>
+                    <option value="12h">12h</option>
+                    <option value="1d">1d</option>
+                    <option value="3d">3d</option>
+                    <option value="1w">1w</option>
+                    <option value="1M">1M</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="relative" style="height: 400px;">
+        <div id="tradingChart" class="w-full h-full"></div>
+        <div id="chartOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Grid Settings -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-xl font-semibold mb-4">Grid Settings</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Upper Price</label>
+            <input type="number" id="upperPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="0">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Lower Price</label>
+            <input type="number" id="lowerPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="0">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Grid Size</label>
+            <input type="number" id="gridSize" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="10">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Position Size</label>
+            <input type="number" id="positionSize" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="0.01">
+        </div>
+    </div>
+    <button id="updateGrid" class="mt-4 w-full bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700">
+        Update Grid
+    </button>
+</div>
+
+<!-- Status Section -->
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-xl font-semibold mb-4">Current Status</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <span class="text-sm text-gray-500">Current Price:</span>
+            <span id="currentPrice" class="text-lg font-medium ml-2">Loading...</span>
+        </div>
+        <div>
+            <span class="text-sm text-gray-500">Active Positions:</span>
+            <span id="activePositions" class="text-lg font-medium ml-2">0</span>
+        </div>
+        <div>
+            <span class="text-sm text-gray-500">Total Profit/Loss:</span>
+            <span id="totalPnl" class="text-lg font-medium ml-2">$0.00</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+<script src="{{ url_for('static', filename='js/overview.js') }}"></script>
+{% endblock %}

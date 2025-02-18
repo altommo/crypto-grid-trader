@@ -1,7 +1,4 @@
-flask
-python-binance
-pandas
-numpy
-python-dotenv
-pyyaml
-python-dateutil
+flask==2.3.3
+python-dotenv==1.0.0
+ccxt==4.1.13
+pyyaml==6.0.1

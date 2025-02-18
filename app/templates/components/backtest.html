@@ -1,0 +1,30 @@
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-xl font-semibold mb-4">Backtesting</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <form id="backtestForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Test Period (days)</label>
+                    <input type="number" id="backtestDays" name="days" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="30">
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white rounded-md py-2 hover:bg-green-700">
+                    Run Backtest
+                </button>
+            </form>
+        </div>
+        <div id="backtestResults" class="space-y-2">
+            <div>
+                <span class="text-sm text-gray-500">Total Return:</span>
+                <span id="totalReturn" class="text-lg font-medium">0.00%</span>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Win Rate:</span>
+                <span id="winRate" class="text-lg font-medium">0.00%</span>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Total Trades:</span>
+                <span id="totalTrades" class="text-lg font-medium">0</span>
+            </div>
+        </div>
+    </div>
+</div>
