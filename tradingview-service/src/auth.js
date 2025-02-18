@@ -95,33 +95,30 @@ async function handleCaptchaLogin(username, password) {
             const currentUrl = await driver.getCurrentUrl();
             console.log('Current URL:', currentUrl);
 
-            // Explicit checks for successful login
-            const isMainPage = currentUrl.startsWith('https://www.tradingview.com/') && !currentUrl.includes('signin');
-            const isNotSignInPage = !currentUrl.includes('/accounts/signin/');
+            // Only proceed if we've left the signin page
+            if (currentUrl === 'https://www.tradingview.com/') {
+                // Try to get cookies
+                const cookies = await driver.manage().getCookies();
+                console.log('Found cookies:', cookies.length);
+                
+                const sessionidCookie = cookies.find(cookie => cookie.name === 'sessionid');
+                const sessionidSignCookie = cookies.find(cookie => cookie.name === 'sessionid_sign');
 
-            // Try to get cookies
-            const cookies = await driver.manage().getCookies();
-            console.log('Found cookies:', cookies.length);
-            
-            const sessionidCookie = cookies.find(cookie => cookie.name === 'sessionid');
-            const sessionidSignCookie = cookies.find(cookie => cookie.name === 'sessionid_sign');
+                // Detailed logging of login state
+                console.log('Login State Check:', {
+                    hasSessionidCookie: !!sessionidCookie,
+                    hasSessionidSignCookie: !!sessionidSignCookie
+                });
 
-            // Detailed logging of login state
-            console.log('Login State Check:', {
-                isMainPage,
-                isNotSignInPage,
-                hasSessionidCookie: !!sessionidCookie,
-                hasSessionidSignCookie: !!sessionidSignCookie
-            });
-
-            // Only consider login successful if we're on the main page or not on sign-in page
-            if ((isMainPage || isNotSignInPage) && sessionidCookie && sessionidSignCookie) {
-                loginSuccessful = true;
-                console.log('Found required cookies and reached correct page!');
-                return {
-                    session: sessionidCookie.value,
-                    signature: sessionidSignCookie.value
-                };
+                // Only consider login successful when on https://www.tradingview.com with required cookies
+                if (sessionidCookie && sessionidSignCookie) {
+                    loginSuccessful = true;
+                    console.log('Found required cookies on main page!');
+                    return {
+                        session: sessionidCookie.value,
+                        signature: sessionidSignCookie.value
+                    };
+                }
             }
 
             await driver.sleep(2000); // Wait before next check
