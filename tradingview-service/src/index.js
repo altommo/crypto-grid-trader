@@ -118,45 +118,59 @@ let authenticatedClient = null;
 async function loginToTradingView() {
     try {
         if (!USERNAME || !PASSWORD) {
-            console.log('Username and Password:', { 
-                USERNAME: USERNAME ? 'PRESENT' : 'MISSING', 
-                PASSWORD: PASSWORD ? 'PRESENT' : 'MISSING' 
+            console.log('Credentials Check:', { 
+                USERNAME_TYPE: typeof USERNAME,
+                USERNAME_VALUE: USERNAME,
+                PASSWORD_TYPE: typeof PASSWORD,
+                PASSWORD_VALUE: PASSWORD ? '[REDACTED]' : undefined
             });
             throw new Error('TradingView username or password not provided');
         }
 
-        try {
-            // First try normal login
-            logger.info('Attempting normal login...');
-            const user = await TradingView.loginUser(USERNAME, PASSWORD, false);
-            logger.info('Successfully logged in through normal method');
-            
-            // Create client with authenticated session
-            authenticatedClient = new TradingView.Client({
-                token: user.sessionid || user.session,
-                signature: user.sessionid_sign
+        logger.info('Attempting login...');
+
+        return new Promise((resolve, reject) => {
+            // Direct TradingView login attempt
+            const client = new TradingView.Client({
+                log: true
             });
 
-            return authenticatedClient;
-        } catch (error) {
-            // Check if error is CAPTCHA related
-            if (error.message.toLowerCase().includes('captcha') || 
-                error.message.toLowerCase().includes('robot')) {
-                logger.info('CAPTCHA detected, falling back to browser login...');
-                const credentials = await handleCaptchaLogin(USERNAME, PASSWORD);
-                logger.info('Successfully logged in through browser after CAPTCHA');
-                
-                // Create client with authenticated session
-                authenticatedClient = new TradingView.Client({
-                    token: credentials.sessionid || credentials.session,
-                    signature: credentials.sessionid_sign
+            client.login(USERNAME, PASSWORD)
+                .then(() => {
+                    logger.info('Successfully logged in');
+                    authenticatedClient = client;
+                    resolve(client);
+                })
+                .catch((error) => {
+                    logger.error('Login failed:', error);
+                    
+                    // Check if CAPTCHA or robot detection is triggered
+                    if (error.message.toLowerCase().includes('captcha') || 
+                        error.message.toLowerCase().includes('robot')) {
+                        logger.info('CAPTCHA detected, falling back to browser login...');
+                        
+                        handleCaptchaLogin(USERNAME, PASSWORD)
+                            .then((credentials) => {
+                                logger.info('Successfully logged in through browser after CAPTCHA');
+                                
+                                // Create a new client with browser-obtained credentials
+                                const browserClient = new TradingView.Client({
+                                    token: credentials.session,
+                                    signature: credentials.signature
+                                });
+                                
+                                authenticatedClient = browserClient;
+                                resolve(browserClient);
+                            })
+                            .catch((captchaError) => {
+                                logger.error('CAPTCHA login failed:', captchaError);
+                                reject(captchaError);
+                            });
+                    } else {
+                        reject(error);
+                    }
                 });
-
-                return authenticatedClient;
-            }
-            // If it's not a CAPTCHA error, throw it
-            throw error;
-        }
+        });
     } catch (error) {
         logger.error('TradingView Login Error:', error);
         throw error;
@@ -164,9 +178,15 @@ async function loginToTradingView() {
 }
 
 // Initial login attempt
-loginToTradingView().catch(err => {
-  logger.error('Initial login failed:', err);
-});
+(async () => {
+    logger.info('Starting login process...');
+    try {
+        await loginToTradingView();
+        logger.info('Login process completed successfully');
+    } catch (err) {
+        logger.error('Initial login failed:', err);
+    }
+})();
 
 logger.info(`TradingView WebSocket server running on port ${PORT}`);
 
