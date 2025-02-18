@@ -1,41 +1,53 @@
 from flask import Flask
 import os
+import sys
 from app.core.exchange import init_exchange
 from app.config.settings import load_config
 
 def create_app():
     print("Creating Flask application...")
     
-    # Explicit frontend path
+    # Explicit and corrected frontend path
     frontend_dir = r'C:\Users\hp\Documents\crypto-grid-trader\crypto-grid-trader\frontend'
     template_dir = os.path.join(frontend_dir, 'templates')
     static_dir = os.path.join(frontend_dir, 'static')
     
-    # Debug print full paths
+    # Validate paths
     print(f"Frontend directory: {frontend_dir}")
     print(f"Template directory: {template_dir}")
     print(f"Static directory: {static_dir}")
     
-    # Validate paths exist
+    # Add more verbose path checking
+    if not os.path.exists(frontend_dir):
+        raise FileNotFoundError(f"Frontend directory not found: {frontend_dir}")
+    
     if not os.path.exists(template_dir):
         raise FileNotFoundError(f"Template directory not found: {template_dir}")
+    
     if not os.path.exists(static_dir):
         raise FileNotFoundError(f"Static directory not found: {static_dir}")
     
-    # Create Flask app with custom template and static folders
+    # List directory contents for debugging
+    print("\nTemplate directory contents:")
+    try:
+        print(os.listdir(template_dir))
+    except Exception as e:
+        print(f"Error listing template directory: {e}")
+    
+    print("\nStatic directory contents:")
+    try:
+        print(os.listdir(static_dir))
+    except Exception as e:
+        print(f"Error listing static directory: {e}")
+    
+    # Create Flask app with explicit template and static folders
     app = Flask(__name__, 
                 template_folder=template_dir, 
                 static_folder=static_dir)
     
     # Verify template and static folders
-    print(f"Actual template folder: {app.template_folder}")
+    print(f"\nActual template folder: {app.template_folder}")
     print(f"Actual static folder: {app.static_folder}")
-    
-    # List contents of template and static directories
-    print("Template directory contents:")
-    print(os.listdir(template_dir))
-    print("\nStatic directory contents:")
-    print(os.listdir(static_dir))
     
     # Load configuration
     print("Loading configuration...")
