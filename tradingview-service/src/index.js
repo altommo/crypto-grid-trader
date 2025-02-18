@@ -2,8 +2,7 @@ require('dotenv').config(); // Load environment variables at the top
 
 const WebSocket = require('ws');
 const { createLogger, format, transports } = require('winston');
-const { handleCaptchaLogin } = require('./auth');
-const TradingView = require('tradingview-api'); // Make sure this is imported
+const TradingView = require('@mathieuc/tradingview');
 
 // Logger Configuration
 const logger = createLogger({
@@ -28,10 +27,10 @@ const logger = createLogger({
 const PORT = process.env.PORT || 8765;
 const wss = new WebSocket.Server({ port: PORT });
 
-// Logging the environment variables for debugging
+// Log environment variables for debugging
 console.log('Environment Variables:', {
-    USERNAME: process.env.TRADINGVIEW_USERNAME,
-    PASSWORD_LENGTH: process.env.TRADINGVIEW_PASSWORD?.length
+    USERNAME: process.env.TRADINGVIEW_USERNAME ? 'PRESENT' : 'MISSING',
+    PASSWORD: process.env.TRADINGVIEW_PASSWORD ? 'PRESENT' : 'MISSING'
 });
 
 // Login credentials from environment variables
@@ -41,56 +40,37 @@ const PASSWORD = process.env.TRADINGVIEW_PASSWORD;
 // Global authenticated client
 let authenticatedClient = null;
 
-// Login function with CAPTCHA fallback
+// Login function with detailed logging
 async function loginToTradingView() {
     try {
         if (!USERNAME || !PASSWORD) {
-            console.error('Username or Password missing:', { USERNAME, PASSWORD_LENGTH: PASSWORD?.length });
+            console.error('Detailed Environment Check:', {
+                USERNAME_TYPE: typeof USERNAME,
+                USERNAME_VALUE: USERNAME,
+                PASSWORD_TYPE: typeof PASSWORD,
+                PASSWORD_VALUE: PASSWORD ? '[REDACTED]' : undefined
+            });
             throw new Error('TradingView username or password not provided');
         }
 
         logger.info('Attempting login...');
 
-        try {
-            // First try normal login
-            logger.info('Attempting normal login...');
-            const user = await TradingView.loginUser(USERNAME, PASSWORD, false);
-            logger.info('Successfully logged in through normal method');
-            
-            // Create client with authenticated session
-            authenticatedClient = new TradingView.Client({
-                token: user.session,
-                signature: user.sessionid_sign // Updated to match new cookie name
+        return new Promise((resolve, reject) => {
+            const client = new TradingView.Client({
+                log: true
             });
 
-            return authenticatedClient;
-        } catch (error) {
-            logger.info('Normal login failed with error:', error.message);
-            
-            // Check if error is CAPTCHA related
-            if (error.message.toLowerCase().includes('captcha') || 
-                error.message.toLowerCase().includes('robot')) {
-                logger.info('CAPTCHA detected, falling back to browser login...');
-                
-                try {
-                    const credentials = await handleCaptchaLogin(USERNAME, PASSWORD);
-                    logger.info('Successfully logged in through browser after CAPTCHA');
-                    
-                    // Create client with authenticated session
-                    authenticatedClient = new TradingView.Client({
-                        token: credentials.session,
-                        signature: credentials.signature
-                    });
-
-                    return authenticatedClient;
-                } catch (captchaError) {
-                    logger.error('CAPTCHA login failed:', captchaError);
-                    throw captchaError;
-                }
-            }
-            // If it's not a CAPTCHA error, throw it
-            throw error;
-        }
+            client.login(USERNAME, PASSWORD)
+                .then(() => {
+                    logger.info('Successfully logged in');
+                    authenticatedClient = client;
+                    resolve(client);
+                })
+                .catch((error) => {
+                    logger.error('Login failed:', error);
+                    reject(error);
+                });
+        });
     } catch (error) {
         logger.error('TradingView Login Error:', error);
         throw error;
@@ -111,3 +91,4 @@ async function loginToTradingView() {
 logger.info(`TradingView WebSocket server running on port ${PORT}`);
 
 // WebSocket server logic continues...
+module.exports = { loginToTradingView };
