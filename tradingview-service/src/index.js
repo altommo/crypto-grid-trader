@@ -117,13 +117,15 @@ let authenticatedClient = null;
 // Login function with CAPTCHA fallback
 async function loginToTradingView() {
     try {
+        // Detailed logging of credentials
+        console.log('Credential Check:', {
+            USERNAME_EXISTS: !!USERNAME,
+            USERNAME_LENGTH: USERNAME ? USERNAME.length : 0,
+            PASSWORD_EXISTS: !!PASSWORD,
+            PASSWORD_LENGTH: PASSWORD ? PASSWORD.length : 0
+        });
+
         if (!USERNAME || !PASSWORD) {
-            console.log('Credentials Check:', { 
-                USERNAME_TYPE: typeof USERNAME,
-                USERNAME_VALUE: USERNAME,
-                PASSWORD_TYPE: typeof PASSWORD,
-                PASSWORD_VALUE: PASSWORD ? '[REDACTED]' : undefined
-            });
             throw new Error('TradingView username or password not provided');
         }
 
