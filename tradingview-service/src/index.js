@@ -1,8 +1,23 @@
 require('dotenv').config();
-const TradingView = require('@mathieuc/tradingview');
+
+// Debugging import
+try {
+  const tradingviewModule = require('@mathieuc/tradingview');
+  console.log('TradingView Module:', Object.keys(tradingviewModule));
+  
+  // Try different import strategies
+  const TradingView = tradingviewModule.default || tradingviewModule;
+  console.log('TradingView Keys:', Object.keys(TradingView));
+} catch (importError) {
+  console.error('Import Error:', importError);
+}
+
 const WebSocket = require('ws');
 const { createLogger, format, transports } = require('winston');
 const { handleCaptchaLogin } = require('./auth');
+
+// Explicitly import TradingView
+const TradingView = require('@mathieuc/tradingview');
 
 // Logger Configuration
 const logger = createLogger({
