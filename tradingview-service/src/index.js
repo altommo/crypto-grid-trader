@@ -133,8 +133,8 @@ async function loginToTradingView() {
             
             // Create client with authenticated session
             authenticatedClient = new TradingView.Client({
-                token: user.session,
-                signature: user.sessionid_sign // Updated to use sessionid_sign
+                token: user.sessionid || user.session,
+                signature: user.sessionid_sign
             });
 
             return authenticatedClient;
@@ -148,8 +148,8 @@ async function loginToTradingView() {
                 
                 // Create client with authenticated session
                 authenticatedClient = new TradingView.Client({
-                    token: credentials.session,
-                    signature: credentials.signature
+                    token: credentials.sessionid || credentials.session,
+                    signature: credentials.sessionid_sign
                 });
 
                 return authenticatedClient;
