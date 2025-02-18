@@ -73,6 +73,14 @@ async function handleCaptchaLogin(username, password) {
         await passwordInput.clear();
         await passwordInput.sendKeys(password);
 
+        console.log('IMPORTANT: MANUAL INTERACTION REQUIRED');
+        console.log('-----------------------------------');
+        console.log('1. Complete the CAPTCHA in the browser');
+        console.log('2. Fully log in to TradingView');
+        console.log('3. DO NOT CLOSE the browser');
+        console.log('4. After COMPLETE login, this script will continue');
+        console.log('-----------------------------------');
+
         console.log('Clicking sign in button...');
         const signInButton = await driver.wait(
             until.elementLocated(By.css('.submitButton-LQwxK8Bm')),
@@ -83,40 +91,30 @@ async function handleCaptchaLogin(username, password) {
         await driver.sleep(500);
         await signInButton.click();
 
-        console.log('Please complete the CAPTCHA in the browser window if it appears...');
-        console.log('Waiting for login completion...');
-
-        // Wait for successful login
-        let loginSuccessful = false;
+        // Wait for manual login completion
         const startTime = Date.now();
         const maxWaitTime = 300000; // 5 minutes
 
-        while (!loginSuccessful && (Date.now() - startTime) < maxWaitTime) {
+        while ((Date.now() - startTime) < maxWaitTime) {
             const currentUrl = await driver.getCurrentUrl();
             console.log('Current URL:', currentUrl);
 
-            // Explicitly check if we've left the signin page
-            if (!currentUrl.includes('/accounts/signin/')) {
-                console.log('Left signin page, attempting to get cookies...');
+            // Explicitly wait until we are NOT on the signin page
+            if (!currentUrl.includes('/accounts/signin/') && currentUrl.startsWith('https://www.tradingview.com/')) {
+                console.log('Successfully redirected from signin page.');
+                
+                // Wait a bit more to ensure cookies are set
+                await driver.sleep(3000);
 
-                // Try to get cookies
+                // Get cookies after redirect
                 const cookies = await driver.manage().getCookies();
-                console.log('Found cookies:', cookies.length);
+                console.log('Cookies after redirect:', cookies.length);
                 
                 const sessionidCookie = cookies.find(cookie => cookie.name === 'sessionid');
                 const sessionidSignCookie = cookies.find(cookie => cookie.name === 'sessionid_sign');
 
-                // Detailed logging of login state
-                console.log('Login State Check:', {
-                    currentUrl,
-                    hasSessionidCookie: !!sessionidCookie,
-                    hasSessionidSignCookie: !!sessionidSignCookie
-                });
-
-                // Only consider login successful if we've left signin page and have both cookies
                 if (sessionidCookie && sessionidSignCookie) {
-                    loginSuccessful = true;
-                    console.log('Found required cookies outside signin page!');
+                    console.log('Found valid session and signature cookies!');
                     return {
                         session: sessionidCookie.value,
                         signature: sessionidSignCookie.value
@@ -124,19 +122,14 @@ async function handleCaptchaLogin(username, password) {
                 }
             }
 
-            await driver.sleep(2000); // Wait before next check
+            // Short wait before next check
+            await driver.sleep(2000);
         }
 
-        // If we're here, we timed out
-        const finalCookies = await driver.manage().getCookies();
-        const cookieNames = finalCookies.map(c => c.name).join(', ');
-        throw new Error(`Timed out waiting for successful login. Available cookies: ${cookieNames}`);
+        throw new Error('Login timeout: Could not complete login process');
 
     } catch (error) {
         console.error('CAPTCHA login error:', error);
-        if (error.message.includes('ChromeDriver')) {
-            console.error('ChromeDriver error. Make sure Chrome is installed and up to date.');
-        }
         throw error;
     } finally {
         if (driver) {
