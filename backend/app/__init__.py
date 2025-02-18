@@ -13,14 +13,33 @@ def create_app():
     template_dir = os.path.join(frontend_dir, 'templates')
     static_dir = os.path.join(frontend_dir, 'static')
     
+    # Debug print full paths
+    print(f"Backend directory: {backend_dir}")
+    print(f"Project root: {project_root}")
     print(f"Frontend directory: {frontend_dir}")
     print(f"Template directory: {template_dir}")
     print(f"Static directory: {static_dir}")
+    
+    # Validate paths exist
+    if not os.path.exists(template_dir):
+        raise FileNotFoundError(f"Template directory not found: {template_dir}")
+    if not os.path.exists(static_dir):
+        raise FileNotFoundError(f"Static directory not found: {static_dir}")
     
     # Create Flask app with custom template and static folders
     app = Flask(__name__, 
                 template_folder=template_dir, 
                 static_folder=static_dir)
+    
+    # Verify template and static folders
+    print(f"Actual template folder: {app.template_folder}")
+    print(f"Actual static folder: {app.static_folder}")
+    
+    # List contents of template and static directories
+    print("Template directory contents:")
+    print(os.listdir(template_dir))
+    print("\nStatic directory contents:")
+    print(os.listdir(static_dir))
     
     # Load configuration
     print("Loading configuration...")
